@@ -54,6 +54,16 @@ export default function DayStrip({ selected, today, earliest, markers, onSelect 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstDay])
 
+  // When another day is picked, slide it to the middle of the strip.
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    const index = days.indexOf(selected)
+    if (index < 0) return
+    el.scrollTo({ left: (index - Math.floor(VISIBLE / 2)) * (el.clientWidth / VISIBLE), behavior: 'smooth' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected])
+
   const frame = useRef(0)
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
