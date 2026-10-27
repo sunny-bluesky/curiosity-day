@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, ChevronLeft, MoreHorizontal } from 'lucide-react'
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowUpRight, Check, ChevronLeft, MoreHorizontal } from 'lucide-react'
 import AutoTextarea from '../components/AutoTextarea.tsx'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import MarkerShape from '../components/MarkerShape.tsx'
 import Splash from '../components/Splash.tsx'
+import SourceCards from '../components/SourceCards.tsx'
 import { createEntry, deleteEntry, getEntry, updateEntry } from '../data/entries.ts'
+import { createLinks, getEntriesByIds, getSources } from '../data/links.ts'
 import { ensureDayMarker, listMarkers } from '../data/markers.ts'
 import { formatDateRu, formatDateTimeRu, todayISO } from '../lib/dates.ts'
 import { entryTypes } from '../lib/entryTypes.ts'
@@ -32,10 +34,23 @@ function useVisibleHeight(): number | undefined {
   return height
 }
 
-export default function Editor() {
+// A new key for every visit, so opening a conclusion from an entry editor starts with a clean form.
+export default function EditorPage() {
+  const { key } = useLocation()
+  return <Editor key={key} />
+}
+
+function Editor() {
   const { type: typeParam, id } = useParams()
   const [search] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Entries chosen in the feed (or the entry being written) as the basis of a new conclusion.
+  const [sourceIds] = useState<string[]>(() => {
+    const ids = (location.state as { sources?: unknown } | null)?.sources
+    return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : []
+  })
+  const [sources, setSources] = useState<Entry[]>([])
 
   const [entry, setEntry] = useState<Entry | null>(null)
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'missing' | 'error'>(id ? 'loading' : 'ready')
@@ -95,6 +110,16 @@ export default function Editor() {
     }
   }, [id])
 
+  // Sources: chosen ones for a new conclusion, or the saved links of an existing one.
+  useEffect(() => {
+    let active = true
+    const load = id ? getSources(id) : getEntriesByIds(sourceIds)
+    load.then((list) => active && setSources(list)).catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [id, sourceIds])
+
   const type: EntryType | null = entry ? entry.type : isEntryType(typeParam) ? typeParam : null
   if (!id && !type) return <Navigate to="/" replace />
 
@@ -127,10 +152,33 @@ export default function Editor() {
     else leave()
   }
 
-  async function onSave() {
+  // Saves the entry; returns it, or null if nothing was saved (empty or failed).
+  async function persist(): Promise<Entry | null> {
     const cleanTitle = title.trim()
     const cleanBody = body.replace(/\s+$/, '')
-    if (!cleanTitle && !cleanBody.trim()) {
+    if (!cleanTitle && !cleanBody.trim()) return null
+    const input = { title: cleanTitle, body: cleanBody, entry_date: date > today ? today : date }
+    let saved: Entry
+    if (id) {
+      saved = dirty ? await updateEntry(id, input) : entry!
+    } else {
+      saved = await createEntry(type!, input)
+      if (type === 'conclusion' && sourceIds.length) {
+        try {
+          await createLinks(saved.id, sourceIds)
+        } catch (e) {
+          await deleteEntry(saved.id).catch(() => undefined) // do not leave a conclusion without its links
+          throw e
+        }
+      }
+    }
+    // The day gets its marker on its first entry (if this fails, the feed assigns it on the next load).
+    await ensureDayMarker(input.entry_date).catch(() => undefined)
+    return saved
+  }
+
+  async function onSave() {
+    if (!title.trim() && !body.trim()) {
       if (id) setError('Запись пустая. Напишите что-нибудь или удалите её через меню «…».')
       else leave()
       return
@@ -138,12 +186,26 @@ export default function Editor() {
     setSaving(true)
     setError(null)
     try {
-      const input = { title: cleanTitle, body: cleanBody, entry_date: date > today ? today : date }
-      if (id) await updateEntry(id, input)
-      else await createEntry(type!, input)
-      // The day gets its marker on its first entry (if this fails, the feed assigns it on the next load).
-      await ensureDayMarker(input.entry_date).catch(() => undefined)
-      leave(input.entry_date)
+      const saved = await persist()
+      leave(saved?.entry_date)
+    } catch {
+      setError('Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.')
+      setSaving(false)
+    }
+  }
+
+  // Arrow: save this entry, then start a conclusion based on it.
+  async function onConclude() {
+    if (!title.trim() && !body.trim()) {
+      setError('Сначала напишите что-нибудь, потом можно сделать вывод.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const saved = await persist()
+      if (!saved) return
+      navigate(`/new/conclusion?date=${todayISO()}`, { replace: true, state: { sources: [saved.id] } })
     } catch {
       setError('Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.')
       setSaving(false)
@@ -188,8 +250,8 @@ export default function Editor() {
               className="absolute inset-0 h-full w-full opacity-0"
             />
           </label>
+          <img src={config.icon} alt={config.label} className="pointer-events-none ml-3 h-7 w-7" />
         </div>
-        <img src={config.icon} alt={config.label} className="pointer-events-none absolute left-1/2 top-[max(1rem,env(safe-area-inset-top))] h-7 w-7 -translate-x-1/2" />
         <button
           type="button"
           aria-label="Настройки записи"
@@ -220,7 +282,12 @@ export default function Editor() {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto px-5 pt-6" onClick={() => setMenuOpen(false)}>
+      <main className="flex-1 overflow-y-auto px-5 pt-4" onClick={() => setMenuOpen(false)}>
+        {type === 'conclusion' && sources.length > 0 && (
+          <div className="mb-4">
+            <SourceCards sources={sources} />
+          </div>
+        )}
         <AutoTextarea
           ref={titleRef}
           value={title}
@@ -242,12 +309,22 @@ export default function Editor() {
         </div>
       </main>
 
-      <footer className="flex items-center justify-end gap-3 px-4 pb-3 pt-2">
+      <footer className="flex items-center gap-3 px-4 pb-3 pt-2">
+        <button
+          type="button"
+          aria-label="Сделать вывод"
+          onClick={() => void onConclude()}
+          disabled={saving}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-common-gray shadow-md disabled:opacity-60"
+        >
+          <ArrowUpRight size={24} />
+        </button>
         {error && (
-          <p role="alert" className="mr-auto text-sm">
+          <p role="alert" className="flex-1 text-sm">
             {error}
           </p>
         )}
+        <span className="flex-1" />
         <button
           type="button"
           aria-label="Сохранить"

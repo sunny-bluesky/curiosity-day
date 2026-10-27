@@ -24,7 +24,12 @@ export default function Home() {
   const [failed, setFailed] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [selected, setSelected] = useState(startDay && startDay <= today ? startDay : today)
+  const [picked, setPicked] = useState<string[]>([]) // entries chosen (by swipe) as sources of a conclusion
   const feed = useRef<HTMLElement>(null)
+
+  function togglePicked(id: string) {
+    setPicked((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]))
+  }
 
   useEffect(() => {
     let active = true
@@ -85,6 +90,7 @@ export default function Home() {
     for (const m of markers ?? []) if (entryDays.has(m.day)) map.set(m.day, m)
     return map
   }, [markers, entryDays])
+  const pickedIds = useMemo(() => picked.filter((id) => (entries ?? []).some((e) => e.id === id)), [picked, entries])
   const earliest = groups.length ? groups[groups.length - 1].date : null
 
   // Scroll the feed to the entries of a day (or to the closest earlier day that has entries).
@@ -150,7 +156,13 @@ export default function Home() {
           <section key={group.date} id={`day-${group.date}`} className="pb-2">
             <h2 className="pt-3 text-sm text-common-gray">{formatDayRu(group.date)}</h2>
             {group.items.map((entry) => (
-              <EntryCard key={entry.id} entry={entry} onOpen={() => navigate(`/entry/${entry.id}`)} />
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                onOpen={() => navigate(`/entry/${entry.id}`)}
+                selected={pickedIds.includes(entry.id)}
+                onToggle={() => togglePicked(entry.id)}
+              />
             ))}
           </section>
         ))}
@@ -167,11 +179,19 @@ export default function Home() {
               type="button"
               onClick={() => {
                 primeKeyboard()
-                navigate(`/new/${type}?date=${selected}`)
+                const sources = type === 'conclusion' ? pickedIds : undefined
+                navigate(`/new/${type}?date=${selected}`, { state: sources && sources.length ? { sources } : undefined })
               }}
               className="flex w-24 flex-col items-center gap-1"
             >
-              <img src={entryTypes[type].icon} alt="" className="h-14 w-14" />
+              <span className="relative">
+                <img src={entryTypes[type].icon} alt="" className="h-14 w-14" />
+                {type === 'conclusion' && pickedIds.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-common-gray px-1 text-xs font-medium text-white">
+                    {pickedIds.length}
+                  </span>
+                )}
+              </span>
               <span className="text-sm">{entryTypes[type].label}</span>
             </button>
           ))}

@@ -19,7 +19,7 @@ export default function App() {
             <Route element={<RequireAuth />}>
               <Route path="/" element={<Home />} />
               <Route path="/stats" element={<Stats />} />
-              <Route path="/new/:type" element={<Editor key="new" />} />
+              <Route path="/new/:type" element={<Editor />} />
               <Route path="/entry/:id" element={<Editor />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
