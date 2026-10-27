@@ -22,3 +22,5 @@ th, td { border: 1px solid #e3e3e3; padding: 8px 10px; text-align: left; vertica
 th { background: #f6f6f6; }
 footer { padding-top: 24px; padding-bottom: 40px; font-size: 15px; border-top: 1px solid #eee; margin-top: 32px; }
 @media (max-width: 480px) { body { font-size: 16px; } h1 { font-size: 26px; } }
+.to-app { font-size: 16px; font-weight: 500; margin: 0 0 20px; }
+.to-app-bottom { margin: 0 0 16px; }
