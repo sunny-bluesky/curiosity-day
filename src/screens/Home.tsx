@@ -6,6 +6,7 @@ import { listEntries } from '../data/entries.ts'
 import EntryCard from '../components/EntryCard.tsx'
 import Splash from '../components/Splash.tsx'
 import { entryTypes } from '../lib/entryTypes.ts'
+import { primeKeyboard } from '../lib/keyboard.ts'
 import { formatDayRu, todayISO } from '../lib/dates.ts'
 import type { Entry, EntryType } from '../types.ts'
 
@@ -108,7 +109,10 @@ export default function Home() {
             <button
               key={type}
               type="button"
-              onClick={() => navigate(`/new/${type}?date=${selectedDate}`)}
+              onClick={() => {
+                primeKeyboard()
+                navigate(`/new/${type}?date=${selectedDate}`)
+              }}
               className="flex w-24 flex-col items-center gap-1"
             >
               <img src={entryTypes[type].icon} alt="" className="h-14 w-14" />

@@ -7,6 +7,7 @@ import Splash from '../components/Splash.tsx'
 import { createEntry, deleteEntry, getEntry, updateEntry } from '../data/entries.ts'
 import { formatDateRu, formatDateTimeRu, todayISO } from '../lib/dates.ts'
 import { entryTypes } from '../lib/entryTypes.ts'
+import { releasePrimedKeyboard } from '../lib/keyboard.ts'
 import { isEntryType, type Entry, type EntryType } from '../types.ts'
 
 // Keeps the editor exactly as tall as the visible area, so the keyboard does not cover the toolbar.
@@ -49,9 +50,17 @@ export default function Editor() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirm, setConfirm] = useState<'delete' | 'leave' | null>(null)
 
+  const titleRef = useRef<HTMLTextAreaElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const height = useVisibleHeight()
   const today = todayISO()
+
+  // New entry: hand the focus from the helper input (set on tap) to the title, keeping the keyboard up.
+  useEffect(() => {
+    if (id) return
+    titleRef.current?.focus()
+    releasePrimedKeyboard()
+  }, [id])
 
   useEffect(() => {
     if (!id) return
@@ -194,6 +203,7 @@ export default function Editor() {
 
       <main className="flex-1 overflow-y-auto px-5 pt-6" onClick={() => setMenuOpen(false)}>
         <AutoTextarea
+          ref={titleRef}
           value={title}
           onChange={setTitle}
           placeholder={config.placeholder}
