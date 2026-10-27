@@ -3,12 +3,14 @@ import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-
 import { Check, ChevronLeft, MoreHorizontal } from 'lucide-react'
 import AutoTextarea from '../components/AutoTextarea.tsx'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
+import MarkerShape from '../components/MarkerShape.tsx'
 import Splash from '../components/Splash.tsx'
 import { createEntry, deleteEntry, getEntry, updateEntry } from '../data/entries.ts'
+import { ensureDayMarker, listMarkers } from '../data/markers.ts'
 import { formatDateRu, formatDateTimeRu, todayISO } from '../lib/dates.ts'
 import { entryTypes } from '../lib/entryTypes.ts'
 import { releasePrimedKeyboard } from '../lib/keyboard.ts'
-import { isEntryType, type Entry, type EntryType } from '../types.ts'
+import { isEntryType, type DayMarker, type Entry, type EntryType } from '../types.ts'
 
 // Keeps the editor exactly as tall as the visible area, so the keyboard does not cover the toolbar.
 function useVisibleHeight(): number | undefined {
@@ -49,11 +51,22 @@ export default function Editor() {
   const [error, setError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirm, setConfirm] = useState<'delete' | 'leave' | null>(null)
+  const [markers, setMarkers] = useState<DayMarker[]>([])
 
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const height = useVisibleHeight()
   const today = todayISO()
+
+  useEffect(() => {
+    let active = true
+    listMarkers()
+      .then((list) => active && setMarkers(list))
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
 
   // New entry: hand the focus from the helper input (set on tap) to the title, keeping the keyboard up.
   useEffect(() => {
@@ -102,8 +115,11 @@ export default function Editor() {
   const config = entryTypes[type]
   const dirty = title !== initial.title || body !== initial.body || date !== initial.date
 
-  function leave() {
-    navigate('/', { replace: true })
+  const marker = markers.find((m) => m.day === date)
+
+  // Back to the feed, showing the day of this entry.
+  function leave(day?: string) {
+    navigate('/', { replace: true, state: day ? { day } : undefined })
   }
 
   function onBack() {
@@ -125,7 +141,9 @@ export default function Editor() {
       const input = { title: cleanTitle, body: cleanBody, entry_date: date > today ? today : date }
       if (id) await updateEntry(id, input)
       else await createEntry(type!, input)
-      leave()
+      // The day gets its marker on its first entry (if this fails, the feed assigns it on the next load).
+      await ensureDayMarker(input.entry_date).catch(() => undefined)
+      leave(input.entry_date)
     } catch {
       setError('Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.')
       setSaving(false)
@@ -137,7 +155,7 @@ export default function Editor() {
     setSaving(true)
     try {
       await deleteEntry(id)
-      leave()
+      leave(entry?.entry_date)
     } catch {
       setConfirm(null)
       setError('Не удалось удалить. Проверьте интернет и попробуйте ещё раз.')
@@ -158,7 +176,8 @@ export default function Editor() {
           <button type="button" aria-label="Назад" onClick={onBack} className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full">
             <ChevronLeft size={22} />
           </button>
-          <label className="relative text-sm text-common-gray">
+          <label className="relative flex items-center gap-2 text-sm text-common-gray">
+            {marker && <MarkerShape shape={marker.shape} color={marker.color} size={22} />}
             {formatDateRu(date)}
             <input
               type="date"
@@ -244,7 +263,7 @@ export default function Editor() {
         <ConfirmDialog title="Удалить запись?" confirmLabel="Удалить" danger busy={saving} onConfirm={() => void onDelete()} onCancel={() => setConfirm(null)} />
       )}
       {confirm === 'leave' && (
-        <ConfirmDialog title="Выйти без сохранения?" confirmLabel="Выйти" danger onConfirm={leave} onCancel={() => setConfirm(null)} />
+        <ConfirmDialog title="Выйти без сохранения?" confirmLabel="Выйти" danger onConfirm={() => leave(initial.date || undefined)} onCancel={() => setConfirm(null)} />
       )}
     </div>
   )

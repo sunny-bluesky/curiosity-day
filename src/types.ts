@@ -15,3 +15,11 @@ export type Entry = {
 export function isEntryType(value: string | undefined): value is EntryType {
   return value === 'noticed' || value === 'did' || value === 'conclusion'
 }
+
+export type DayMarker = {
+  day: string
+  /** shape name = file name in src/assets/markers (e.g. "icon-07") */
+  shape: string
+  /** color name from the day-* palette (e.g. "day-lavender") */
+  color: string
+}

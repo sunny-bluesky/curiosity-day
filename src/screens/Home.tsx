@@ -1,37 +1,67 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { User as UserIcon } from 'lucide-react'
-import { useAuth } from '../auth/useAuth.ts'
-import { listEntries } from '../data/entries.ts'
+import DayStrip from '../components/DayStrip.tsx'
 import EntryCard from '../components/EntryCard.tsx'
 import Splash from '../components/Splash.tsx'
+import { listEntries } from '../data/entries.ts'
+import { ensureDayMarker, listMarkers } from '../data/markers.ts'
+import { formatDayRu, todayISO } from '../lib/dates.ts'
 import { entryTypes } from '../lib/entryTypes.ts'
 import { primeKeyboard } from '../lib/keyboard.ts'
-import { formatDayRu, todayISO } from '../lib/dates.ts'
-import type { Entry, EntryType } from '../types.ts'
+import type { DayMarker, Entry, EntryType } from '../types.ts'
 
 const buttons: EntryType[] = ['noticed', 'did', 'conclusion']
 
 export default function Home() {
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
-  const [entries, setEntries] = useState<Entry[] | null>(null)
-  const [failed, setFailed] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [reloadKey, setReloadKey] = useState(0)
+  const location = useLocation()
+  const today = todayISO()
+  const startDay = (location.state as { day?: string } | null)?.day
 
-  // The day strip arrives in stage 3; until then new entries go to today (the date can be changed in the editor).
-  const selectedDate = todayISO()
+  const [entries, setEntries] = useState<Entry[] | null>(null)
+  const [markers, setMarkers] = useState<DayMarker[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [selected, setSelected] = useState(startDay && startDay <= today ? startDay : today)
+  const feed = useRef<HTMLElement>(null)
 
   useEffect(() => {
     let active = true
-    listEntries()
-      .then((list) => active && setEntries(list))
+    Promise.all([listEntries(), listMarkers()])
+      .then(([list, marks]) => {
+        if (!active) return
+        setEntries(list)
+        setMarkers(marks)
+      })
       .catch(() => active && setFailed(true))
     return () => {
       active = false
     }
   }, [reloadKey])
+
+  // Assign markers to days that have entries but no marker yet (older entries, or a failed earlier attempt).
+  useEffect(() => {
+    if (!entries || !markers) return
+    const missing = [...new Set(entries.map((e) => e.entry_date))].filter((d) => !markers.some((m) => m.day === d)).sort()
+    if (missing.length === 0) return
+    let active = true
+    ;(async () => {
+      let list = markers
+      for (const day of missing) {
+        try {
+          list = await ensureDayMarker(day, list)
+        } catch {
+          return
+        }
+        if (!active) return
+      }
+      setMarkers(list)
+    })()
+    return () => {
+      active = false
+    }
+  }, [entries, markers])
 
   function retry() {
     setFailed(false)
@@ -48,31 +78,56 @@ export default function Home() {
     return result
   }, [entries])
 
-  const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined
-  const shownName = meta?.full_name ?? meta?.name ?? user?.email ?? ''
+  const entryDays = useMemo(() => new Set((entries ?? []).map((e) => e.entry_date)), [entries])
+  const visibleMarkers = useMemo(() => {
+    const map = new Map<string, DayMarker>()
+    for (const m of markers ?? []) if (entryDays.has(m.day)) map.set(m.day, m)
+    return map
+  }, [markers, entryDays])
+  const earliest = groups.length ? groups[groups.length - 1].date : null
+
+  // Scroll the feed to the entries of a day (or to the closest earlier day that has entries).
+  function scrollToDay(day: string) {
+    const target = groups.find((g) => g.date <= day) ?? groups[groups.length - 1]
+    const el = target && document.getElementById(`day-${target.date}`)
+    if (el && feed.current) feed.current.scrollTo({ top: el.offsetTop - 8, behavior: 'smooth' })
+  }
+
+  // Coming back from the editor: show the day that was just saved.
+  const scrolledToStart = useRef(false)
+  useEffect(() => {
+    if (!startDay || !entries || scrolledToStart.current) return
+    scrolledToStart.current = true
+    const target = groups.find((g) => g.date <= startDay) ?? groups[groups.length - 1]
+    const el = target && document.getElementById(`day-${target.date}`)
+    if (el && feed.current) feed.current.scrollTop = el.offsetTop - 8
+  }, [startDay, entries, groups])
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="relative flex justify-end px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+      <header className="flex justify-end px-4 pb-1 pt-[max(1rem,env(safe-area-inset-top))]">
         <button
           type="button"
-          aria-label="Профиль"
-          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Статистика"
+          onClick={() => navigate('/stats')}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md"
         >
           <UserIcon size={20} />
         </button>
-        {menuOpen && (
-          <div className="absolute right-4 top-[calc(max(1rem,env(safe-area-inset-top))+3.25rem)] z-20 w-56 rounded-2xl bg-white p-3 shadow-xl">
-            <p className="truncate px-2 pb-2 text-sm text-common-gray">{shownName}</p>
-            <button type="button" onClick={() => void signOut()} className="w-full rounded-xl bg-light-gray px-3 py-2 text-left font-medium">
-              Выйти
-            </button>
-          </div>
-        )}
       </header>
 
-      <main className="relative flex-1 overflow-y-auto px-5" onClick={() => setMenuOpen(false)}>
+      <DayStrip
+        selected={selected}
+        today={today}
+        earliest={earliest}
+        markers={visibleMarkers}
+        onSelect={(day) => {
+          setSelected(day)
+          scrollToDay(day)
+        }}
+      />
+
+      <main ref={feed} className="relative flex-1 overflow-y-auto px-5">
         {entries === null && !failed && <Splash />}
 
         {failed && (
@@ -91,7 +146,7 @@ export default function Home() {
         )}
 
         {groups.map((group) => (
-          <section key={group.date} className="pb-2">
+          <section key={group.date} id={`day-${group.date}`} className="pb-2">
             <h2 className="pt-3 text-sm text-common-gray">{formatDayRu(group.date)}</h2>
             {group.items.map((entry) => (
               <EntryCard key={entry.id} entry={entry} onOpen={() => navigate(`/entry/${entry.id}`)} />
@@ -111,7 +166,7 @@ export default function Home() {
               type="button"
               onClick={() => {
                 primeKeyboard()
-                navigate(`/new/${type}?date=${selectedDate}`)
+                navigate(`/new/${type}?date=${selected}`)
               }}
               className="flex w-24 flex-col items-center gap-1"
             >

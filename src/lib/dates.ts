@@ -38,3 +38,46 @@ export function formatDateTimeRu(timestamp: string): string {
     .toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     .replace(/\s?г\.,?\s?(в\s)?/, ', ')
 }
+
+export function addDays(iso: string, n: number): string {
+  const d = parseISO(iso)
+  d.setDate(d.getDate() + n)
+  return toISODate(d)
+}
+
+/** Monday of the week that contains the day. */
+export function mondayOf(iso: string): string {
+  const dow = (parseISO(iso).getDay() + 6) % 7
+  return addDays(iso, -dow)
+}
+
+export function addMonths(iso: string, n: number): string {
+  const d = parseISO(iso)
+  return toISODate(new Date(d.getFullYear(), d.getMonth() + n, 1))
+}
+
+export function monthStart(iso: string): string {
+  return `${iso.slice(0, 7)}-01`
+}
+
+export function monthEnd(iso: string): string {
+  const d = parseISO(iso)
+  return toISODate(new Date(d.getFullYear(), d.getMonth() + 1, 0))
+}
+
+export function dayOfMonth(iso: string): number {
+  return Number(iso.slice(8, 10))
+}
+
+/** 0 = Monday ... 6 = Sunday */
+export function weekdayIndex(iso: string): number {
+  return (parseISO(iso).getDay() + 6) % 7
+}
+
+export function monthNameRu(iso: string): string {
+  return parseISO(iso).toLocaleDateString('ru-RU', { month: 'long' })
+}
+
+export function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}

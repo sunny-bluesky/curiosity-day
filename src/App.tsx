@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from './lib/supabase.ts'
 import Editor from './screens/Editor.tsx'
 import Home from './screens/Home.tsx'
 import Login from './screens/Login.tsx'
+import Stats from './screens/Stats.tsx'
 import Splash from './components/Splash.tsx'
 
 // On wide screens the app is a fixed-width column (up to 480 px) centered on the page.
@@ -17,6 +18,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route element={<RequireAuth />}>
               <Route path="/" element={<Home />} />
+              <Route path="/stats" element={<Stats />} />
               <Route path="/new/:type" element={<Editor key="new" />} />
               <Route path="/entry/:id" element={<Editor />} />
             </Route>
