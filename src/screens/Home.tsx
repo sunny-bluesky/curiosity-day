@@ -28,7 +28,8 @@ export default function Home() {
 
   useEffect(() => {
     let active = true
-    Promise.all([listEntries(), listMarkers()])
+    // Markers are decoration: if they cannot be loaded, the entries must still be shown.
+    Promise.all([listEntries(), listMarkers().catch(() => [] as DayMarker[])])
       .then(([list, marks]) => {
         if (!active) return
         setEntries(list)

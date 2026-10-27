@@ -52,7 +52,8 @@ export default function Stats() {
 
   useEffect(() => {
     let active = true
-    Promise.all([listEntries(), listMarkers()])
+    // Markers are decoration: if they cannot be loaded, the numbers must still be shown.
+    Promise.all([listEntries(), listMarkers().catch(() => [] as DayMarker[])])
       .then(([list, marks]) => {
         if (!active) return
         setEntries(list)
@@ -85,6 +86,9 @@ export default function Stats() {
   if (failed) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
+        <button type="button" aria-label="Назад" onClick={() => navigate('/', { replace: true })} className="absolute left-3 top-[max(1rem,env(safe-area-inset-top))] flex h-9 w-9 items-center justify-center rounded-full">
+          <ChevronLeft size={24} />
+        </button>
         <p className="text-common-gray">Не удалось загрузить статистику. Проверьте интернет.</p>
         <button
           type="button"
