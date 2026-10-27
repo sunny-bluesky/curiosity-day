@@ -47,6 +47,16 @@ export default function Login() {
             {error}
           </p>
         )}
+        <p className="text-xs leading-snug text-common-gray">
+          Входя, вы соглашаетесь с{' '}
+          <a href={`${import.meta.env.BASE_URL}terms.html`} target="_blank" rel="noopener" className="underline">
+            Условиями использования
+          </a>{' '}
+          и{' '}
+          <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noopener" className="underline">
+            Политикой конфиденциальности
+          </a>
+        </p>
       </div>
     </main>
   )

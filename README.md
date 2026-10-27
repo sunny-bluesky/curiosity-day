@@ -52,6 +52,16 @@
 5. В Supabase: Authentication → Sign In / Providers → **Google** → включите, вставьте Client ID и Client Secret, сохраните.
 6. Client Secret вставляется только в Supabase. В код, в репозиторий и в чат он не попадает.
 
+#### Ссылки для Google Cloud
+
+Чтобы перевести вход в режим «для всех», в Google Auth Platform → **Branding** нужны публичные ссылки. Страницы лежат в приложении и открываются без входа:
+
+- Application home page → `https://sunny-bluesky.github.io/curiosity-day/about.html`
+- Application privacy policy link → `https://sunny-bluesky.github.io/curiosity-day/privacy.html`
+- Application terms of service link → `https://sunny-bluesky.github.io/curiosity-day/terms.html`
+
+Исходные тексты страниц — в `design/legal/`, готовые страницы — `public/about.html`, `public/privacy.html`, `public/terms.html`. Если меняется почта для обращений или другие данные, их надо поправить в трёх HTML-файлах.
+
 ### 4. Claude Code
 
 Разработку ведёт Claude Code. Он входит в вашу подписку Claude, лимиты общие с обычным чатом.
