@@ -1,0 +1,24 @@
+# dependencies and build output
+node_modules
+dist
+dist-ssr
+
+# local secrets
+.env.local
+*.local
+
+# leftovers from earlier agents / local tooling
+.tools
+.scaffold
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# editors and macOS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?
