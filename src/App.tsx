@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider.tsx'
 import RequireAuth from './auth/RequireAuth.tsx'
 import { isSupabaseConfigured } from './lib/supabase.ts'
+import Editor from './screens/Editor.tsx'
 import Home from './screens/Home.tsx'
 import Login from './screens/Login.tsx'
 import Splash from './components/Splash.tsx'
@@ -16,6 +17,8 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route element={<RequireAuth />}>
               <Route path="/" element={<Home />} />
+              <Route path="/new/:type" element={<Editor key="new" />} />
+              <Route path="/entry/:id" element={<Editor />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
