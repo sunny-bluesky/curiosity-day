@@ -187,15 +187,6 @@ export default function Stats() {
       <button type="button" onClick={() => void signOut()} className="mx-auto mt-10 block rounded-full bg-light-gray px-6 py-3 font-medium">
         Выйти
       </button>
-
-      <p className="mt-6 flex justify-center gap-4 pb-2 text-xs text-common-gray">
-        <a href={`${import.meta.env.BASE_URL}terms.html`} target="_blank" rel="noopener" className="underline">
-          Условия использования
-        </a>
-        <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noopener" className="underline">
-          Политика конфиденциальности
-        </a>
-      </p>
     </div>
   )
 }
